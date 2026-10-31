@@ -251,7 +251,12 @@ Map<String, dynamic>? getHoroscope(AstrolabeParams params) {
   // for 循环120次获取他的流年, 从出生日期的年份开始，一次递增一年，然后将年转为干支纪年法，
   final birthYear = int.parse(params.solarDate.split('-')[0]);
   final birthMonth = int.parse(params.solarDate.split('-')[1]);
-  final birthDay = int.parse(params.solarDate.split('-')[2]);
+  var birthDay = int.parse(params.solarDate.split('-')[2]);
+  // Guard against Feb-29 births: iterating birthYear..birthYear+120 reuses
+  // birthMonth/birthDay, which crashes Solar.fromYmdHms on non-leap years.
+  // Clamp the day to the last valid day of the month for each iteration year.
+  final lastDayBase = DateTime(birthYear, birthMonth + 1, 0).day;
+  if (birthDay > lastDayBase) birthDay = lastDayBase;
   List<YearlyStemsBranches> yearlyStemsBranches = [];
   for (int i = 0; i < EarthlyBranchName.values.length; i++) {
     final idx =
@@ -263,10 +268,13 @@ Map<String, dynamic>? getHoroscope(AstrolabeParams params) {
     yearlyStemsBranches.add(branch);
   }
   for (int i = birthYear; i < birthYear + 120; i++) {
+    final iterDay = birthMonth == 2 && birthDay == 29
+        ? (DateTime(i, 2, 29).month == 2 && DateTime(i, 2, 29).day == 29 ? 29 : 28)
+        : birthDay;
     var solar = Solar.fromYmdHms(
       i,
       birthMonth,
-      birthDay,
+      iterDay,
       max(params.timeIndex * 2 - 1, 0),
       30,
       0,
